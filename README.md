@@ -22,16 +22,29 @@ Open [http://localhost:3000](http://localhost:3000) for the UI. Call the API wit
 
 If TypeScript complains that `Booking` or `Prisma.BookingWhereInput` are missing, the Prisma client was not generated (common when `npm` blocks install scripts). Run `npx prisma generate`, or allow scripts: `npm approve-scripts @prisma/client prisma @prisma/engines`.
 
-## Deploy (Vercel + Neon)
+## Deploy (Vercel + Supabase)
 
-1. Create a Neon (or Supabase) Postgres database and copy `DATABASE_URL`.
-2. Import this repo in Vercel.
-3. Set environment variables:
-   - `DATABASE_URL`
-   - `API_KEY` (submit this value on the Tally form)
-   - `NEXT_PUBLIC_API_KEY` (same as `API_KEY` so the UI can call the API)
-4. Set **Build Command** to `npx prisma migrate deploy && npm run build` (or add `postinstall`: `prisma generate`).
-5. After first deploy, run migrations (or use the build command above) and `npm run db:seed` locally against production URL if you want demo slots.
+### Fix: `P1012 Environment variable not found: DATABASE_URL`
+
+Vercel does **not** read your local `.env`. Add variables in the **Vercel project → Settings → Environment Variables** for **Production** (and Preview if you want). Then **Redeploy**.
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | App runtime — Supabase **Transaction pooler** (`6543`, `?pgbouncer=true`) recommended on Vercel |
+| `DIRECT_URL` | `prisma migrate deploy` at build — use the **Session pooler** (`5432`) URI that worked with `npm run db:deploy`. For local dev, both URLs can be the same Session pooler string. |
+| `API_KEY` | Secret for `X-API-Key` (Tally form) |
+| `NEXT_PUBLIC_API_KEY` | **Same value** as `API_KEY` |
+
+`vercel.json` runs `prisma migrate deploy && npm run build`, so **`DATABASE_URL` and `DIRECT_URL` must exist before the first deploy**.
+
+### Steps
+
+1. Push repo to GitHub and import in Vercel.
+2. Add all four variables above (encode `@` in passwords as `%40`).
+3. Deploy. If migrate succeeds, the API is live.
+4. Optional: from your machine, `DATABASE_URL="$DIRECT_URL" npm run db:seed` only works if seed targets prod — or call `POST /reset` with assessor-style slots after deploy.
+
+**Simplest Supabase setup:** set **`DATABASE_URL` and `DIRECT_URL` to the same Session pooler URI** (port 5432) until everything works; switch `DATABASE_URL` to Transaction pooler later if you want.
 
 **Tally submission**
 
